@@ -1,7 +1,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-
 export async function GET() {
   try {
     const url = process.env.SUPABASE_URL;
@@ -16,28 +15,51 @@ export async function GET() {
 
     const supabase = createClient(url, key);
 
-    const { data, error } = await supabase
+    // Retrieve the 8 dashboard metrics
+    const dashboard = await supabase
       .from("dashboard_metrics")
       .select("*")
       .eq("profile_id", 1)
       .single();
 
-    if (error) {
-      return Response.json(
-        { error: error.message },
-        { status: 500 }
-      );
+    // Retrieve the 3 health indicators
+    const health = await supabase
+      .from("health_metrics")
+      .select("*")
+      .eq("profile_id", 1)
+      .single();
+
+    if (dashboard.error) {
+      throw new Error(dashboard.error.message);
     }
 
-    return Response.json(data, {
-      headers: { "Cache-Control": "no-store" }
-    });
+    if (health.error) {
+      throw new Error(health.error.message);
+    }
+
+    // Combine the dashboard and health data
+    return Response.json(
+      {
+        ...dashboard.data,
+        health: health.data
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store"
+        }
+      }
+    );
 
   } catch (error) {
-    console.error(error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Database connection failed";
+
+    console.error("API error:", message);
 
     return Response.json(
-      { error: "Database connection failed" },
+      { error: message },
       { status: 500 }
     );
   }
